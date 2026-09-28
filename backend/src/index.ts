@@ -82,10 +82,10 @@ const generateUniqueAmount = async (baseAmount: number): Promise<number> => {
   return Number((baseAmount + (newDecimal / 100)).toFixed(2));
 };
 
-// Create a new client
+// Create a new client (No templates here anymore!)
 app.post('/api/clients', async (req: Request, res: Response) => {
   try {
-    const { name, email, baseAmount, startDate, dueDate, endDate, sendTime, prePaymentTemplate, postPaymentTemplate, overdueTemplate } = req.body;
+    const { name, email, baseAmount, startDate, dueDate, endDate } = req.body;
     
     const uniqueId = await generateUniqueId(name);
     const uniqueAmount = await generateUniqueAmount(Number(baseAmount));
@@ -99,10 +99,7 @@ app.post('/api/clients', async (req: Request, res: Response) => {
       startDate: new Date(startDate),
       dueDate: new Date(dueDate),
       endDate: new Date(endDate),
-      sendTime: sendTime || "09:00",
-      prePaymentTemplate,
-      postPaymentTemplate,
-      overdueTemplate
+      schedules: []
     });
 
     await client.save();
@@ -117,7 +114,7 @@ app.get('/api/clients', async (req: Request, res: Response) => {
   try {
     if (mongoose.connection.readyState !== 1) return res.status(200).json([]);
     const clients = await Client.find()
-      .populate('prePaymentTemplate postPaymentTemplate overdueTemplate')
+      .populate('schedules.templateId')
       .sort({ createdAt: -1 });
     res.status(200).json(clients);
   } catch (error: any) {
@@ -125,38 +122,71 @@ app.get('/api/clients', async (req: Request, res: Response) => {
   }
 });
 
-// Mark client as PAID (Triggers post-payment email)
+// Add a schedule to a client
+app.post('/api/clients/:id/schedules', async (req: Request, res: Response) => {
+  try {
+    const client = await Client.findById(req.params.id);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    
+    client.schedules.push(req.body);
+    await client.save();
+    res.status(201).json(client);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete a schedule from a client
+app.delete('/api/clients/:id/schedules/:scheduleId', async (req: Request, res: Response) => {
+  try {
+    const client = await Client.findById(req.params.id);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    
+    client.schedules = client.schedules.filter(s => s._id?.toString() !== req.params.scheduleId) as any;
+    await client.save();
+    res.status(200).json(client);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark client as PAID (Triggers ON_PAID schedules)
 app.put('/api/clients/:id/pay', async (req: Request, res: Response) => {
   try {
-    const client = await Client.findById(req.params.id).populate<{ postPaymentTemplate: ITemplate }>('postPaymentTemplate');
+    const client = await Client.findById(req.params.id).populate('schedules.templateId');
     if (!client) return res.status(404).json({ error: 'Client not found' });
     if (client.status === 'PAID') return res.status(400).json({ error: 'Already paid' });
 
     client.status = 'PAID';
     await client.save();
 
-    // Send post-payment email immediately
-    if (client.postPaymentTemplate) {
-      try {
-        await sendEmail(client.email, client.name, client.postPaymentTemplate.subject, client.postPaymentTemplate.message);
-        await EmailLog.create({
-          client: client._id,
-          template: client.postPaymentTemplate._id,
-          type: 'POST_PAYMENT',
-          status: 'SENT'
-        });
-      } catch (err: any) {
-        await EmailLog.create({
-          client: client._id,
-          template: client.postPaymentTemplate._id,
-          type: 'POST_PAYMENT',
-          status: 'FAILED',
-          errorMsg: err.message
-        });
+    // Find and send all ON_PAID templates
+    const onPaidSchedules = client.schedules.filter(s => s.triggerType === 'ON_PAID' && s.isActive);
+    
+    for (const schedule of onPaidSchedules) {
+      const template = schedule.templateId as any as ITemplate;
+      if (template) {
+        try {
+          await sendEmail(client.email, client.name, template.subject, template.message, { endDate: client.endDate });
+          await EmailLog.create({
+            client: client._id,
+            template: template._id,
+            type: 'POST_PAYMENT',
+            status: 'SENT'
+          });
+        } catch (err: any) {
+          await EmailLog.create({
+            client: client._id,
+            template: template._id,
+            type: 'POST_PAYMENT',
+            status: 'FAILED',
+            errorMsg: err.message
+          });
+        }
       }
     }
 
-    res.status(200).json({ message: 'Marked as paid and confirmation sent', client });
+    res.status(200).json({ message: 'Marked as paid and confirmations sent', client });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -178,13 +208,6 @@ app.get('/api/logs', async (req: Request, res: Response) => {
 });
 
 
-// --- LEGACY CAMPAIGNS API (Keep so frontend doesn't crash yet) ---
-app.post('/api/emails', async (req, res) => { /* Keep placeholder for older UI */ res.status(200).json({}); });
-app.get('/api/emails', async (req, res) => { res.status(200).json([]); });
-app.put('/api/emails/:id', async (req, res) => { res.status(200).json({}); });
-app.delete('/api/emails/:id', async (req, res) => { res.status(200).json({}); });
-
-
 // --- NEW CLIENT CRON JOB ---
 const checkAndSendClientEmails = async () => {
   if (mongoose.connection.readyState !== 1) return;
@@ -195,10 +218,9 @@ const checkAndSendClientEmails = async () => {
 
   try {
     const pendingClients = await Client.find({ status: { $ne: 'PAID' } })
-      .populate<{ prePaymentTemplate: ITemplate, overdueTemplate: ITemplate }>('prePaymentTemplate overdueTemplate');
+      .populate('schedules.templateId');
 
     for (let client of pendingClients) {
-      // Check date boundaries
       const clientStart = new Date(client.startDate);
       clientStart.setHours(0, 0, 0, 0);
       const clientEnd = new Date(client.endDate);
@@ -207,38 +229,53 @@ const checkAndSendClientEmails = async () => {
       if (now < clientStart || now > clientEnd) {
         continue;
       }
-
-      const lastSentStr = client.lastSentAt ? new Date(client.lastSentAt).toDateString() : null;
       
-      // If we haven't sent today, and it's time to send
-      if (lastSentStr !== todayStr && client.sendTime <= currentHHMM) {
-        
-        const isOverdue = now > new Date(client.dueDate);
-        const template = isOverdue ? client.overdueTemplate : client.prePaymentTemplate;
-        const mailType = isOverdue ? 'OVERDUE' : 'PRE_PAYMENT';
+      const isOverdue = now > new Date(client.dueDate);
 
-        if (template) {
-          console.log(`🚀 Sending ${mailType} to ${client.email} (${client.name})...`);
-          try {
-            await sendEmail(client.email, client.name, template.subject, template.message);
-            await EmailLog.create({
-              client: client._id,
-              template: template._id,
-              type: mailType,
-              status: 'SENT'
-            });
-            // Update last sent date
-            client.lastSentAt = now;
-            await client.save();
-          } catch (err: any) {
-            console.error('Error sending email:', err);
-            await EmailLog.create({
-              client: client._id,
-              template: template._id,
-              type: mailType,
-              status: 'FAILED',
-              errorMsg: err.message
-            });
+      for (let schedule of client.schedules) {
+        if (!schedule.isActive || schedule.triggerType === 'ON_PAID') continue;
+        
+        // Time check
+        if (schedule.sendTime !== currentHHMM) continue;
+
+        // Daily sent check (don't send the same schedule twice today)
+        const lastSentStr = schedule.lastSentAt ? new Date(schedule.lastSentAt).toDateString() : null;
+        if (lastSentStr === todayStr) continue;
+
+        // Trigger Type Check
+        let shouldSend = false;
+        
+        if (schedule.triggerType === 'DAILY_BEFORE_DUE' && !isOverdue) shouldSend = true;
+        else if (schedule.triggerType === 'DAILY_OVERDUE' && isOverdue) shouldSend = true;
+        else if (schedule.triggerType === 'SPECIFIC_DATE' && schedule.specificDate) {
+          const specDate = new Date(schedule.specificDate).toDateString();
+          if (specDate === todayStr) shouldSend = true;
+        }
+
+        if (shouldSend) {
+          const template = schedule.templateId as any as ITemplate;
+          if (template) {
+            console.log(`🚀 Sending ${schedule.triggerType} to ${client.email} (${client.name})...`);
+            try {
+              await sendEmail(client.email, client.name, template.subject, template.message, { endDate: client.endDate });
+              await EmailLog.create({
+                client: client._id,
+                template: template._id,
+                type: isOverdue ? 'OVERDUE' : 'PRE_PAYMENT',
+                status: 'SENT'
+              });
+              schedule.lastSentAt = now;
+              await client.save();
+            } catch (err: any) {
+              console.error('Error sending email:', err);
+              await EmailLog.create({
+                client: client._id,
+                template: template._id,
+                type: isOverdue ? 'OVERDUE' : 'PRE_PAYMENT',
+                status: 'FAILED',
+                errorMsg: err.message
+              });
+            }
           }
         }
       }
