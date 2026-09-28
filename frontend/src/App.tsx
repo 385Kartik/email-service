@@ -72,7 +72,7 @@ function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const API_URL = import.meta.env.VITE_API_URL || '/api';
 
   const fetchData = async () => {
     setRefreshing(true);
