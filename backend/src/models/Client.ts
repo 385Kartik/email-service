@@ -20,6 +20,7 @@ export interface IClient extends Document {
   dueDate: Date;
   endDate: Date;
   status: 'PENDING' | 'PAID' | 'OVERDUE';
+  isRecurring: boolean;
   schedules: ISchedule[];
   createdAt: Date;
 }
@@ -43,6 +44,7 @@ const ClientSchema: Schema = new Schema({
   dueDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
   status: { type: String, enum: ['PENDING', 'PAID', 'OVERDUE'], default: 'PENDING' },
+  isRecurring: { type: Boolean, default: false },
   schedules: [ScheduleSchema],
   createdAt: { type: Date, default: Date.now }
 });

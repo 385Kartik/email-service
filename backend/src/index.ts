@@ -121,10 +121,10 @@ const generateUniqueAmount = async (baseAmount: number): Promise<number> => {
   return Number((baseAmount + (newDecimal / 100)).toFixed(2));
 };
 
-// Create a new client (No templates here anymore!)
+// Create a new client
 app.post('/api/clients', async (req: Request, res: Response) => {
   try {
-    const { name, email, baseAmount, startDate, dueDate, endDate } = req.body;
+    const { name, email, baseAmount, startDate, dueDate, endDate, isRecurring } = req.body;
     
     const uniqueId = await generateUniqueId(name);
     const uniqueAmount = await generateUniqueAmount(Number(baseAmount));
@@ -138,6 +138,7 @@ app.post('/api/clients', async (req: Request, res: Response) => {
       startDate: new Date(startDate),
       dueDate: new Date(dueDate),
       endDate: new Date(endDate),
+      isRecurring: isRecurring || false,
       schedules: []
     });
 
@@ -232,7 +233,7 @@ app.put('/api/clients/:id/pay', async (req: Request, res: Response) => {
 });
 
 
-// --- EMAIL LOGS API (NEW) ---
+// --- EMAIL LOGS API ---
 app.get('/api/logs', async (req: Request, res: Response) => {
   try {
     if (mongoose.connection.readyState !== 1) return res.status(200).json([]);
@@ -256,16 +257,29 @@ const checkAndSendClientEmails = async () => {
   const todayStr = now.toDateString();
 
   try {
-    const pendingClients = await Client.find({ status: { $ne: 'PAID' } })
-      .populate('schedules.templateId');
+    const allClients = await Client.find().populate('schedules.templateId');
 
-    for (let client of pendingClients) {
+    for (let client of allClients) {
       const clientStart = new Date(client.startDate);
       clientStart.setHours(0, 0, 0, 0);
       const clientEnd = new Date(client.endDate);
       clientEnd.setHours(23, 59, 59, 999);
       
-      if (now < clientStart || now > clientEnd) {
+      // Auto-Renew Monthly Recurring Clients if end date has passed
+      if (client.isRecurring && now > clientEnd) {
+         const advanceMonth = (d: Date) => { const newD = new Date(d); newD.setMonth(newD.getMonth() + 1); return newD; };
+         client.startDate = advanceMonth(client.startDate);
+         client.dueDate = advanceMonth(client.dueDate);
+         client.endDate = advanceMonth(client.endDate);
+         client.status = 'PENDING';
+         client.schedules.forEach(s => s.lastSentAt = undefined);
+         await client.save();
+         console.log(`🔄 Auto-renewed recurring client ${client.name} for the next cycle!`);
+         continue;
+      }
+
+      // If client is paid or outside date boundaries, skip normal sending
+      if (client.status === 'PAID' || now < clientStart || now > clientEnd) {
         continue;
       }
       

@@ -70,7 +70,8 @@ function App() {
     baseAmount: '',
     startDate: defaultToday,
     dueDate: nextWeek,
-    endDate: nextMonth
+    endDate: nextMonth,
+    isRecurring: false
   });
 
   const [scheduleForm, setScheduleForm] = useState({
@@ -363,9 +364,16 @@ function App() {
               {/* Client Info Glass Card */}
               <div className="ios-glass p-6 sm:p-7 rounded-3xl space-y-5">
                 <div>
-                  <span className="text-[10px] font-mono uppercase bg-[#5F2CFF]/10 text-[#5F2CFF] px-2.5 py-1 rounded-full border border-[#5F2CFF]/15 font-bold">
-                    {selectedClient.uniqueId}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-mono uppercase bg-[#5F2CFF]/10 text-[#5F2CFF] px-2.5 py-1 rounded-full border border-[#5F2CFF]/15 font-bold">
+                      {selectedClient.uniqueId}
+                    </span>
+                    {(selectedClient as any).isRecurring && (
+                      <span className="flex items-center gap-1 text-[10px] uppercase bg-emerald-500/10 text-emerald-600 px-2.5 py-1 rounded-full border border-emerald-500/20 font-bold">
+                        <RefreshCw className="w-3 h-3" /> Recurring
+                      </span>
+                    )}
+                  </div>
                   <h2 className="text-2xl font-black text-slate-900 mt-2">{selectedClient.name}</h2>
                   <p className="text-slate-500 text-xs sm:text-sm font-medium">{selectedClient.email}</p>
                 </div>
@@ -608,6 +616,20 @@ function App() {
                     onChange={e => setClientForm({ ...clientForm, endDate: e.target.value })} 
                     required 
                   />
+                </div>
+
+                <div className="flex items-center justify-between p-3.5 bg-white/40 rounded-2xl border border-white/60 shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)] mt-2">
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <RefreshCw className="w-3.5 h-3.5 text-[#5F2CFF]" />
+                      Monthly Recurring
+                    </span>
+                    <p className="text-[9px] text-slate-500 mt-0.5 leading-tight pr-2">Auto-renew invoicing dates & reset to pending each month</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={clientForm.isRecurring} onChange={e => setClientForm({...clientForm, isRecurring: e.target.checked})} />
+                    <div className="w-10 h-[22px] bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-[#5F2CFF]"></div>
+                  </label>
                 </div>
                 <button 
                   type="submit" 
