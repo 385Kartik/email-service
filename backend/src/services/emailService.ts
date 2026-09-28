@@ -1,0 +1,42 @@
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+export const sendEmail = async (to: string, name: string, customSubject?: string, customMessage?: string) => {
+  // Replace dynamic template variables like {{name}} and {{email}}
+  const defaultSubject = `Daily Update for ${name}`;
+  const defaultMessage = `Hi ${name},\n\nThis is your customized daily email.\n\nBest regards,\nTeam`;
+
+  const finalSubject = (customSubject || defaultSubject)
+    .replace(/\{\{\s*name\s*\}\}/gi, name)
+    .replace(/\{\{\s*email\s*\}\}/gi, to);
+
+  const finalMessage = (customMessage || defaultMessage)
+    .replace(/\{\{\s*name\s*\}\}/gi, name)
+    .replace(/\{\{\s*email\s*\}\}/gi, to);
+
+  const mailOptions = {
+    from: `MailFlow Service <${process.env.EMAIL_USER}>`,
+    to: to,
+    subject: finalSubject,
+    text: finalMessage,
+    // html: finalMessage.replace(/\n/g, '<br>') // Convert newlines to HTML line breaks if needed
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent to ' + to + ': ' + info.response);
+    return info;
+  } catch (error) {
+    console.error('❌ Error sending email to ' + to, error);
+    throw error;
+  }
+};
