@@ -206,7 +206,7 @@ app.put('/api/clients/:id/pay', async (req: Request, res: Response) => {
       const template = schedule.templateId as any as ITemplate;
       if (template) {
         try {
-          await sendEmail(client.email, client.name, template.subject, template.message, { endDate: client.endDate });
+          await sendEmail(client.email, client.name, template.subject, template.message, { dueDate: client.dueDate });
           await EmailLog.create({
             client: client._id,
             template: template._id,
@@ -296,7 +296,7 @@ const checkAndSendClientEmails = async () => {
           if (template) {
             console.log(`🚀 Sending ${schedule.triggerType} to ${client.email} (${client.name})...`);
             try {
-              await sendEmail(client.email, client.name, template.subject, template.message, { endDate: client.endDate });
+              await sendEmail(client.email, client.name, template.subject, template.message, { dueDate: client.dueDate });
               await EmailLog.create({
                 client: client._id,
                 template: template._id,

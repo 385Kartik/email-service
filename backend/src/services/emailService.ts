@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import Settings from '../models/Settings.js';
 dotenv.config();
 
-export const sendEmail = async (to: string, name: string, customSubject?: string, customMessage?: string, context?: { endDate?: Date | string }) => {
+export const sendEmail = async (to: string, name: string, customSubject?: string, customMessage?: string, context?: { dueDate?: Date | string }) => {
   // Fetch settings from DB
   const settings = await Settings.findOne();
   
@@ -29,10 +29,10 @@ export const sendEmail = async (to: string, name: string, customSubject?: string
     },
   });
 
-  // Calculate remaining days if context is provided
+  // Calculate remaining days based on dueDate
   let remainingDays = 0;
-  if (context?.endDate) {
-    const diff = new Date(context.endDate).getTime() - new Date().getTime();
+  if (context?.dueDate) {
+    const diff = new Date(context.dueDate).getTime() - new Date().getTime();
     remainingDays = Math.max(0, Math.ceil(diff / (1000 * 3600 * 24)));
   }
 
