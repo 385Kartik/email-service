@@ -1,5 +1,15 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface ISchedule {
+  _id?: mongoose.Types.ObjectId;
+  templateId: mongoose.Types.ObjectId;
+  triggerType: 'DAILY_BEFORE_DUE' | 'DAILY_OVERDUE' | 'SPECIFIC_DATE' | 'ON_PAID';
+  specificDate?: Date;
+  sendTime: string;
+  isActive: boolean;
+  lastSentAt?: Date;
+}
+
 export interface IClient extends Document {
   name: string;
   uniqueId: string;
@@ -10,13 +20,18 @@ export interface IClient extends Document {
   dueDate: Date;
   endDate: Date;
   status: 'PENDING' | 'PAID' | 'OVERDUE';
-  sendTime: string;
-  prePaymentTemplate: mongoose.Types.ObjectId;
-  postPaymentTemplate: mongoose.Types.ObjectId;
-  overdueTemplate: mongoose.Types.ObjectId;
-  lastSentAt?: Date;
+  schedules: ISchedule[];
   createdAt: Date;
 }
+
+const ScheduleSchema = new Schema({
+  templateId: { type: Schema.Types.ObjectId, ref: 'Template', required: true },
+  triggerType: { type: String, enum: ['DAILY_BEFORE_DUE', 'DAILY_OVERDUE', 'SPECIFIC_DATE', 'ON_PAID'], required: true },
+  specificDate: { type: Date },
+  sendTime: { type: String, default: '09:00' },
+  isActive: { type: Boolean, default: true },
+  lastSentAt: { type: Date }
+});
 
 const ClientSchema: Schema = new Schema({
   name: { type: String, required: true },
@@ -28,11 +43,7 @@ const ClientSchema: Schema = new Schema({
   dueDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
   status: { type: String, enum: ['PENDING', 'PAID', 'OVERDUE'], default: 'PENDING' },
-  sendTime: { type: String, default: '09:00' },
-  prePaymentTemplate: { type: Schema.Types.ObjectId, ref: 'Template', required: true },
-  postPaymentTemplate: { type: Schema.Types.ObjectId, ref: 'Template', required: true },
-  overdueTemplate: { type: Schema.Types.ObjectId, ref: 'Template', required: true },
-  lastSentAt: { type: Date },
+  schedules: [ScheduleSchema],
   createdAt: { type: Date, default: Date.now }
 });
 
