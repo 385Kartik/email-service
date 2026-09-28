@@ -239,7 +239,7 @@ function App() {
             </div>
             <div>
               <h1 className="text-xl font-extrabold text-[#5F2CFF] tracking-tight">
-                MailFlow
+                Devoraaa
               </h1>
               <p className="text-xs text-slate-500 font-medium">Automated Email Automation Platform</p>
             </div>

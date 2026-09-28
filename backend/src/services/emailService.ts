@@ -24,7 +24,7 @@ export const sendEmail = async (to: string, name: string, customSubject?: string
     .replace(/\{\{\s*email\s*\}\}/gi, to);
 
   const mailOptions = {
-    from: `MailFlow Service <${process.env.EMAIL_USER}>`,
+    from: `Devoraaa <${process.env.EMAIL_USER}>`,
     to: to,
     subject: finalSubject,
     text: finalMessage,
