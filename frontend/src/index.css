@@ -3,15 +3,50 @@
 @layer base {
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: #DFF6FF;
     color: #0f172a;
+    min-height: 100vh;
+    overflow-x: hidden;
   }
 }
 
-.glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+.ios-glass {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 12px 36px rgba(31, 38, 135, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+.ios-glass-subtle {
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 4px 18px rgba(31, 38, 135, 0.03), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+}
+
+.ios-glass-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ios-glass-hover:hover {
+  background: rgba(255, 255, 255, 0.75);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(95, 44, 255, 0.09), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+}
+
+.ios-input {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+}
+.ios-input:focus {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: #5F2CFF;
+  box-shadow: 0 0 0 3px rgba(95, 44, 255, 0.18), inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  outline: none;
 }
