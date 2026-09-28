@@ -136,7 +136,7 @@ app.put('/api/emails/:id', async (req: Request, res: Response) => {
         sendTime,
         isActive
       },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate('templateId');
     
     // Trigger immediate check in case it was updated to current time
