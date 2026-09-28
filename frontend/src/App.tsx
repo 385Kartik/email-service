@@ -3,7 +3,7 @@ import axios from 'axios';
 import { 
   Mail, Calendar, User, PlusCircle, Users, CheckCircle2, Clock, Search,
   Send, RefreshCw, FileText, Type, LayoutGrid, Trash2, FilePlus,
-  IndianRupee, History, X, AlertCircle, ArrowLeft, Plus, Sparkles, ChevronRight
+  IndianRupee, History, X, AlertCircle, ArrowLeft, Plus, Sparkles, ChevronRight, Settings
 } from 'lucide-react';
 
 interface Template {
@@ -49,10 +49,13 @@ interface EmailLog {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'clients' | 'templates'>('clients');
+  const [activeTab, setActiveTab] = useState<'clients' | 'templates' | 'settings'>('clients');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [logs, setLogs] = useState<EmailLog[]>([]);
+  
+  const [settingsForm, setSettingsForm] = useState({ smtpEmail: '', smtpPassword: '', senderName: '' });
+  const [testEmail, setTestEmail] = useState('');
   
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
@@ -89,14 +92,22 @@ function App() {
   const fetchData = async () => {
     setRefreshing(true);
     try {
-      const [tRes, cRes, lRes] = await Promise.all([
+      const [tRes, cRes, lRes, sRes] = await Promise.all([
         axios.get(`${API_URL}/templates`),
         axios.get(`${API_URL}/clients`),
-        axios.get(`${API_URL}/logs`)
+        axios.get(`${API_URL}/logs`),
+        axios.get(`${API_URL}/settings`)
       ]);
       setTemplates(tRes.data);
       setClients(cRes.data);
       setLogs(lRes.data);
+      if (sRes.data) {
+        setSettingsForm({
+          smtpEmail: sRes.data.smtpEmail || '',
+          smtpPassword: sRes.data.smtpPassword || '',
+          senderName: sRes.data.senderName || 'Devoraaa'
+        });
+      }
 
       if (selectedClient) {
         const updated = cRes.data.find((c: Client) => c._id === selectedClient._id);
@@ -183,6 +194,32 @@ function App() {
     setTemplateForm(prev => ({ ...prev, message: prev.message + ` ${variable}` }));
   };
 
+  const handleSettingsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await axios.put(`${API_URL}/settings`, settingsForm);
+      alert('Settings saved successfully!');
+    } catch (error) {
+      alert('Failed to save settings.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmail) return alert('Please enter an email address to test.');
+    setLoading(true);
+    try {
+      await axios.post(`${API_URL}/settings/test`, { to: testEmail });
+      alert('Test email sent successfully! Check your inbox.');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to send test email. Please check your App Password and Email.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredClients = clients.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 
     c.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -230,7 +267,7 @@ function App() {
               }`}
             >
               <Users className="w-3.5 h-3.5" />
-              <span>Client CRM</span>
+              <span className="hidden sm:inline">Client CRM</span>
             </button>
             <button 
               onClick={() => { setActiveTab('templates'); setSelectedClient(null); }} 
@@ -241,7 +278,18 @@ function App() {
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>Templates</span>
+              <span className="hidden sm:inline">Templates</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('settings'); setSelectedClient(null); }} 
+              className={`flex items-center space-x-2 px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 ${
+                activeTab === 'settings' 
+                  ? 'bg-gradient-to-r from-[#5F2CFF] to-[#7B4EFF] text-white shadow-[0_4px_14px_rgba(95,44,255,0.38),inset_0_1px_1px_rgba(255,255,255,0.4)] scale-[1.02]' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+              }`}
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Settings</span>
             </button>
           </div>
 
@@ -772,6 +820,89 @@ function App() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: SETTINGS PAGE */}
+        {activeTab === 'settings' && (
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div className="ios-glass p-6 sm:p-8 rounded-3xl space-y-6">
+              <div className="flex items-center space-x-3 pb-4 border-b border-white/60">
+                <div className="p-2.5 bg-[#5F2CFF]/15 text-[#5F2CFF] rounded-2xl">
+                  <Settings className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Email Configuration</h2>
+                  <p className="text-xs text-slate-500">Setup your Gmail App Password to allow Devoraaa to send emails</p>
+                </div>
+              </div>
+              
+              <form onSubmit={handleSettingsSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Sender Name (Brand)</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Devoraaa Invoices" 
+                    className="w-full ios-input rounded-2xl px-4 py-3 text-sm" 
+                    value={settingsForm.senderName} 
+                    onChange={e => setSettingsForm({ ...settingsForm, senderName: e.target.value })} 
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1.5 ml-1">The name your clients will see in their inbox.</p>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Gmail Address</label>
+                  <input 
+                    type="email" 
+                    placeholder="your-email@gmail.com" 
+                    className="w-full ios-input rounded-2xl px-4 py-3 text-sm" 
+                    value={settingsForm.smtpEmail} 
+                    onChange={e => setSettingsForm({ ...settingsForm, smtpEmail: e.target.value })} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">App Password</label>
+                  <input 
+                    type="password" 
+                    placeholder="16-character App Password" 
+                    className="w-full ios-input rounded-2xl px-4 py-3 text-sm font-mono" 
+                    value={settingsForm.smtpPassword} 
+                    onChange={e => setSettingsForm({ ...settingsForm, smtpPassword: e.target.value })} 
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1.5 ml-1">You must use a Google App Password (not your main password). Enable 2FA in Google Account to generate one.</p>
+                </div>
+                
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-[#5F2CFF] to-[#7B4EFF] hover:opacity-95 text-white font-bold py-3.5 rounded-2xl shadow-[0_10px_25px_-4px_rgba(95,44,255,0.45),inset_0_1px_1px_rgba(255,255,255,0.4)] transition-all active:scale-[0.98] text-sm mt-4"
+                >
+                  {loading ? 'Saving...' : 'Save Configuration'}
+                </button>
+              </form>
+            </div>
+
+            <div className="ios-glass p-6 sm:p-8 rounded-3xl space-y-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Test Connection</h3>
+                <p className="text-xs text-slate-500 mt-1">Send a test email to verify your settings are correct.</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input 
+                  type="email" 
+                  placeholder="Enter an email to test..." 
+                  className="flex-1 ios-input rounded-2xl px-4 py-3 text-sm" 
+                  value={testEmail} 
+                  onChange={e => setTestEmail(e.target.value)} 
+                />
+                <button 
+                  onClick={handleTestEmail}
+                  disabled={loading}
+                  className="bg-white/60 hover:bg-white/90 border border-white/80 text-slate-800 font-bold py-3 px-6 rounded-2xl shadow-sm transition-all active:scale-[0.98] text-sm whitespace-nowrap"
+                >
+                  Send Test
+                </button>
               </div>
             </div>
           </div>

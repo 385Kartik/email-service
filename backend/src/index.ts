@@ -8,12 +8,51 @@ import Template, { ITemplate } from './models/Template.js';
 import Client, { IClient } from './models/Client.js';
 import EmailLog from './models/EmailLog.js';
 import { sendEmail } from './services/emailService.js';
+import Settings from './models/Settings.js';
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// --- SETTINGS API ---
+app.get('/api/settings', async (req: Request, res: Response) => {
+  try {
+    if (mongoose.connection.readyState !== 1) return res.status(200).json({});
+    let settings = await Settings.findOne();
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+    res.status(200).json(settings);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/settings', async (req: Request, res: Response) => {
+  try {
+    let settings = await Settings.findOne();
+    if (!settings) settings = new Settings();
+    if (req.body.smtpEmail !== undefined) settings.smtpEmail = req.body.smtpEmail;
+    if (req.body.smtpPassword !== undefined) settings.smtpPassword = req.body.smtpPassword;
+    if (req.body.senderName !== undefined) settings.senderName = req.body.senderName;
+    await settings.save();
+    res.status(200).json(settings);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/settings/test', async (req: Request, res: Response) => {
+  try {
+    const { to } = req.body;
+    await sendEmail(to, 'Admin Test', 'Test Connection', 'Your Devoraaa email settings are working perfectly!');
+    res.status(200).json({ message: 'Test email sent successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 let isMongoConnected = false;
 

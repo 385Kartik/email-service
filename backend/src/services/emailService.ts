@@ -1,16 +1,34 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import Settings from '../models/Settings.js';
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
 export const sendEmail = async (to: string, name: string, customSubject?: string, customMessage?: string, context?: { endDate?: Date | string }) => {
+  // Fetch settings from DB
+  const settings = await Settings.findOne();
+  
+  let user = process.env.EMAIL_USER;
+  let pass = process.env.EMAIL_PASS;
+  let senderName = 'Devoraaa';
+
+  if (settings && settings.smtpEmail && settings.smtpPassword) {
+    user = settings.smtpEmail;
+    pass = settings.smtpPassword;
+    if (settings.senderName) senderName = settings.senderName;
+  }
+
+  if (!user || !pass) {
+    throw new Error('Email sending failed: SMTP credentials are not set in the Settings tab.');
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: user,
+      pass: pass,
+    },
+  });
+
   // Calculate remaining days if context is provided
   let remainingDays = 0;
   if (context?.endDate) {
@@ -32,11 +50,10 @@ export const sendEmail = async (to: string, name: string, customSubject?: string
     .replace(/\{\{\s*remaining_days\s*\}\}/gi, remainingDays.toString());
 
   const mailOptions = {
-    from: `Devoraaa <${process.env.EMAIL_USER}>`,
+    from: `${senderName} <${user}>`,
     to: to,
     subject: finalSubject,
     text: finalMessage,
-    // html: finalMessage.replace(/\n/g, '<br>') // Convert newlines to HTML line breaks if needed
   };
 
   try {
