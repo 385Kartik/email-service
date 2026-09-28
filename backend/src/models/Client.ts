@@ -6,7 +6,9 @@ export interface IClient extends Document {
   email: string;
   baseAmount: number;
   uniqueAmount: number;
+  startDate: Date;
   dueDate: Date;
+  endDate: Date;
   status: 'PENDING' | 'PAID' | 'OVERDUE';
   sendTime: string;
   prePaymentTemplate: mongoose.Types.ObjectId;
@@ -22,7 +24,9 @@ const ClientSchema: Schema = new Schema({
   email: { type: String, required: true },
   baseAmount: { type: Number, required: true },
   uniqueAmount: { type: Number, required: true },
+  startDate: { type: Date, required: true },
   dueDate: { type: Date, required: true },
+  endDate: { type: Date, required: true },
   status: { type: String, enum: ['PENDING', 'PAID', 'OVERDUE'], default: 'PENDING' },
   sendTime: { type: String, default: '09:00' },
   prePaymentTemplate: { type: Schema.Types.ObjectId, ref: 'Template', required: true },

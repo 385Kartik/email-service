@@ -85,7 +85,7 @@ const generateUniqueAmount = async (baseAmount: number): Promise<number> => {
 // Create a new client
 app.post('/api/clients', async (req: Request, res: Response) => {
   try {
-    const { name, email, baseAmount, dueDate, sendTime, prePaymentTemplate, postPaymentTemplate, overdueTemplate } = req.body;
+    const { name, email, baseAmount, startDate, dueDate, endDate, sendTime, prePaymentTemplate, postPaymentTemplate, overdueTemplate } = req.body;
     
     const uniqueId = await generateUniqueId(name);
     const uniqueAmount = await generateUniqueAmount(Number(baseAmount));
@@ -96,7 +96,9 @@ app.post('/api/clients', async (req: Request, res: Response) => {
       email,
       baseAmount,
       uniqueAmount,
+      startDate: new Date(startDate),
       dueDate: new Date(dueDate),
+      endDate: new Date(endDate),
       sendTime: sendTime || "09:00",
       prePaymentTemplate,
       postPaymentTemplate,
@@ -196,6 +198,16 @@ const checkAndSendClientEmails = async () => {
       .populate<{ prePaymentTemplate: ITemplate, overdueTemplate: ITemplate }>('prePaymentTemplate overdueTemplate');
 
     for (let client of pendingClients) {
+      // Check date boundaries
+      const clientStart = new Date(client.startDate);
+      clientStart.setHours(0, 0, 0, 0);
+      const clientEnd = new Date(client.endDate);
+      clientEnd.setHours(23, 59, 59, 999);
+      
+      if (now < clientStart || now > clientEnd) {
+        continue;
+      }
+
       const lastSentStr = client.lastSentAt ? new Date(client.lastSentAt).toDateString() : null;
       
       // If we haven't sent today, and it's time to send

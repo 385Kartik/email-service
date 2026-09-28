@@ -20,7 +20,9 @@ interface Client {
   email: string;
   baseAmount: number;
   uniqueAmount: number;
+  startDate: string;
   dueDate: string;
+  endDate: string;
   status: 'PENDING' | 'PAID' | 'OVERDUE';
   sendTime: string;
   prePaymentTemplate: Template;
@@ -48,7 +50,9 @@ function App() {
 
   // Default dates
   const now = new Date();
+  const defaultToday = now.toISOString().split('T')[0];
   const nextWeek = new Date(now.setDate(now.getDate() + 7)).toISOString().split('T')[0];
+  const nextMonth = new Date(now.setDate(now.getDate() + 30)).toISOString().split('T')[0];
   const defaultTime = `09:00`;
 
   // Client Form State
@@ -56,7 +60,9 @@ function App() {
     name: '',
     email: '',
     baseAmount: '',
+    startDate: defaultToday,
     dueDate: nextWeek,
+    endDate: nextMonth,
     sendTime: defaultTime,
     prePaymentTemplate: '',
     postPaymentTemplate: '',
@@ -381,6 +387,19 @@ function App() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Start Date</label>
+                      <div className="relative">
+                        <Calendar className="w-4 h-4 text-[#5F2CFF] absolute left-3 top-2.5" />
+                        <input
+                          type="date"
+                          className="w-full bg-white/80 border border-slate-200 rounded-xl pl-9 pr-2 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-[#5F2CFF]"
+                          value={clientForm.startDate}
+                          onChange={e => setClientForm({ ...clientForm, startDate: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
                       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Due Date</label>
                       <div className="relative">
                         <Calendar className="w-4 h-4 text-[#5F2CFF] absolute left-3 top-2.5" />
@@ -389,6 +408,22 @@ function App() {
                           className="w-full bg-white/80 border border-slate-200 rounded-xl pl-9 pr-2 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-[#5F2CFF]"
                           value={clientForm.dueDate}
                           onChange={e => setClientForm({ ...clientForm, dueDate: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">End Date (Stop Mails)</label>
+                      <div className="relative">
+                        <Calendar className="w-4 h-4 text-[#5F2CFF] absolute left-3 top-2.5" />
+                        <input
+                          type="date"
+                          className="w-full bg-white/80 border border-slate-200 rounded-xl pl-9 pr-2 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-[#5F2CFF]"
+                          value={clientForm.endDate}
+                          onChange={e => setClientForm({ ...clientForm, endDate: e.target.value })}
                           required
                         />
                       </div>
