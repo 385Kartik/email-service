@@ -57,7 +57,8 @@ function App() {
     templateId: '',
     startDate: defaultToday,
     endDate: nextWeek,
-    sendTime: defaultTime
+    sendTime: defaultTime,
+    isActive: true
   });
 
   // Template Form State
@@ -71,6 +72,7 @@ function App() {
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
 
   const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -97,7 +99,7 @@ function App() {
     fetchData();
   }, []);
 
-  // Handle Schedule Creation
+  // Handle Schedule Creation / Update
   const handleScheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!scheduleForm.templateId) {
@@ -110,29 +112,76 @@ function App() {
       const startDateTime = new Date(`${scheduleForm.startDate}T${scheduleForm.sendTime}:00`).toISOString();
       const endDateTime = new Date(`${scheduleForm.endDate}T23:59:59`).toISOString();
 
-      await axios.post(`${API_URL}/emails`, {
-        name: scheduleForm.name,
-        email: scheduleForm.email,
-        templateId: scheduleForm.templateId,
-        startDateTime,
-        endDateTime,
-        sendTime: scheduleForm.sendTime
-      });
+      if (editingCampaignId) {
+        await axios.put(`${API_URL}/emails/${editingCampaignId}`, {
+          name: scheduleForm.name,
+          email: scheduleForm.email,
+          templateId: scheduleForm.templateId,
+          startDateTime,
+          endDateTime,
+          sendTime: scheduleForm.sendTime,
+          isActive: scheduleForm.isActive
+        });
+        alert('✨ Campaign Updated Successfully!');
+        setEditingCampaignId(null);
+      } else {
+        await axios.post(`${API_URL}/emails`, {
+          name: scheduleForm.name,
+          email: scheduleForm.email,
+          templateId: scheduleForm.templateId,
+          startDateTime,
+          endDateTime,
+          sendTime: scheduleForm.sendTime,
+          isActive: scheduleForm.isActive
+        });
+        alert('⚡ Campaign Scheduled & Job Started!');
+      }
 
       setScheduleForm(prev => ({ 
         ...prev, 
         name: '', 
-        email: ''
+        email: '',
+        isActive: true
       }));
 
       fetchData();
-      alert('⚡ Campaign Scheduled & Job Started!');
     } catch (error) {
-      console.error('Error scheduling email', error);
-      alert('Failed to schedule email.');
+      console.error('Error saving campaign', error);
+      alert('Failed to save email campaign.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditCampaign = (camp: Campaign) => {
+    setScheduleForm({
+      name: camp.name,
+      email: camp.email,
+      templateId: camp.templateId._id,
+      startDate: new Date(camp.startDateTime).toISOString().split('T')[0],
+      endDate: new Date(camp.endDateTime).toISOString().split('T')[0],
+      sendTime: camp.sendTime,
+      isActive: camp.isActive
+    });
+    setEditingCampaignId(camp._id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteCampaign = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this scheduled job?')) return;
+    try {
+      await axios.delete(`${API_URL}/emails/${id}`);
+      fetchData();
+      if (selectedCampaign?._id === id) setSelectedCampaign(null);
+      if (editingCampaignId === id) cancelEdit();
+    } catch (error) {
+      console.error('Error deleting campaign', error);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingCampaignId(null);
+    setScheduleForm(prev => ({ ...prev, name: '', email: '', isActive: true }));
   };
 
   // Handle Template Creation
@@ -275,7 +324,7 @@ function App() {
             <div className="glass-card p-6 rounded-2xl shadow-md border border-white/90 space-y-6">
               <div className="flex items-center space-x-2 pb-4 border-b border-slate-200/60">
                 <PlusCircle className="w-5 h-5 text-[#5F2CFF]" />
-                <h2 className="text-lg font-bold text-slate-900">Schedule Email Job</h2>
+                <h2 className="text-lg font-bold text-slate-900">{editingCampaignId ? 'Edit Email Job' : 'Schedule Email Job'}</h2>
               </div>
 
               {templates.length === 0 ? (
@@ -384,20 +433,45 @@ function App() {
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full mt-4 bg-[#5F2CFF] hover:bg-[#4d21da] text-white font-bold py-3 rounded-xl shadow-lg shadow-[#5F2CFF]/30 transition transform active:scale-95 flex items-center justify-center space-x-2 disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <RefreshCw className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        <span>Schedule Job Now</span>
-                      </>
+                  {editingCampaignId && (
+                    <div className="pt-2">
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-[#5F2CFF] rounded border-slate-300 focus:ring-[#5F2CFF]"
+                          checked={scheduleForm.isActive}
+                          onChange={e => setScheduleForm({ ...scheduleForm, isActive: e.target.checked })}
+                        />
+                        <span className="text-sm font-bold text-slate-600">Active Campaign</span>
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col space-y-2 mt-4">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-[#5F2CFF] hover:bg-[#4d21da] text-white font-bold py-3 rounded-xl shadow-lg shadow-[#5F2CFF]/30 transition transform active:scale-95 flex items-center justify-center space-x-2 disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span>{editingCampaignId ? 'Update Job' : 'Schedule Job Now'}</span>
+                        </>
+                      )}
+                    </button>
+                    {editingCampaignId && (
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 rounded-xl transition"
+                      >
+                        Cancel Edit
+                      </button>
                     )}
-                  </button>
+                  </div>
                 </form>
               )}
             </div>
@@ -510,12 +584,26 @@ function App() {
                       <FileText className="w-5 h-5 text-[#5F2CFF]" />
                       <h3 className="font-bold text-slate-900">Live Preview: {selectedCampaign.templateId.title}</h3>
                     </div>
-                    <button 
-                      onClick={() => setSelectedCampaign(null)} 
-                      className="text-xs text-slate-400 hover:text-slate-600 font-bold"
-                    >
-                      Close Preview
-                    </button>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => handleEditCampaign(selectedCampaign)} 
+                        className="text-xs text-[#5F2CFF] hover:text-[#4d21da] font-bold px-3 py-1 bg-[#5F2CFF]/10 rounded-lg"
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteCampaign(selectedCampaign._id)} 
+                        className="text-xs text-rose-600 hover:text-rose-700 font-bold px-3 py-1 bg-rose-50 rounded-lg"
+                      >
+                        Delete
+                      </button>
+                      <button 
+                        onClick={() => setSelectedCampaign(null)} 
+                        className="text-xs text-slate-400 hover:text-slate-600 font-bold px-3 py-1"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
                   <div className="bg-white/80 border border-slate-200 rounded-xl p-4 text-xs space-y-2 font-mono">
                     <p><span className="font-bold text-slate-500">To:</span> {selectedCampaign.email}</p>

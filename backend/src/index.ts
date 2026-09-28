@@ -121,6 +121,43 @@ app.get('/api/emails', async (req: Request, res: Response) => {
   }
 });
 
+// Update schedule
+app.put('/api/emails/:id', async (req: Request, res: Response) => {
+  try {
+    const { name, email, templateId, startDateTime, endDateTime, sendTime, isActive } = req.body;
+    const updated = await EmailCampaign.findByIdAndUpdate(
+      req.params.id,
+      {
+        name,
+        email,
+        templateId,
+        startDateTime: new Date(startDateTime),
+        endDateTime: new Date(endDateTime),
+        sendTime,
+        isActive
+      },
+      { new: true }
+    ).populate('templateId');
+    
+    // Trigger immediate check in case it was updated to current time
+    checkAndSendEmails();
+
+    res.status(200).json({ message: 'Campaign updated', campaign: updated });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete schedule
+app.delete('/api/emails/:id', async (req: Request, res: Response) => {
+  try {
+    await EmailCampaign.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: 'Campaign deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 // Helper function to check and send emails
 const checkAndSendEmails = async () => {
